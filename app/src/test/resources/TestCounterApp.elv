@@ -44,9 +44,9 @@ record CounterModel =
  * Basic surface for Counter purposes that displays the current count to the shell, and asks for user input via stdin
  */
 surface CounterSurface P: Counter, M: CounterMsg =
-    { view = \counterModel -> SimpleShellOut "Current count is" ++ counterModel.count // SimpleShellout is standard library renderer. eq to {outStr = "..."}
+    { view = \counterModel -> SimpleShellOut ("Current count is" ++ counterModel.count) // SimpleShellout is standard library renderer. eq to {outStr = "..."}
     , events = [ SimpleShellIn "Enter command: increment(i, +) or decrement(d, -)" 
-                               \in -> case String.lower(in) of: 
+                               \userInput -> case String.lower(userInput) of: 
                                    "+", "i" -> Increment
                                    "-", "d" -> Decrement
                                    _ -> InvalidInput
@@ -61,9 +61,9 @@ surface CounterSurface P: Counter, M: CounterMsg =
 fn M: CounterMsg update (inModel: CounterModel, inMsg: CounterMsg) |-> (CounterModel, List Effect) =
     case inMsg of:
         Increment -> (inModel | count = current + 1 // This line is shorthand to create a new CounterModel using the same values as inModel
-                                                    // while updating the "count" field to be the current "count" field's value + 1
-                                                    // "current" is shorthand for referencing the field on the LHS of assignment in the input record
+                                                    // while updating the "count" field to be the current "count" field's value + 1.
+                                                    // "current" is shorthand for referencing the field on the LHS of assignment in the input record.
                                                     // would be like `CurrentModel (inModel.count + 1)` or `inModel | count = inModel.count + 1`
-                      , Debug "Increment pressed. Current model is " ++ inModel)
+                      , [ Debug "Increment pressed. Current model is " ++ inModel ] )
         Decrement -> (inModel | count = current - 1, Debug "Decrement pressed. Current model is " ++ inModel)
-        InvalidInput -> (inModel, Debug "Invalid input entered, nothing done") 
+        InvalidInput -> (inModel, [ Debug "Invalid input entered, nothing done" ]) 
