@@ -58,7 +58,7 @@ surface CounterSurface P: Counter, M: CounterMsg =
  * Note the parans () are not necessary. If there was only one input it'd look like `fn update inModel: Model |-> Model`
  * This function updates the model by adding or subtracting based on the input.
  */
-fn M: CounterMsg update (inModel: CounterModel, inMsg: CounterMsg) |-> (CounterModel, List Effect) =
+fn update (inModel: CounterModel, inMsg: CounterMsg) |-> (CounterModel, List Effect) =
     case inMsg of:
         Increment -> (inModel | count = current + 1 // This line is shorthand to create a new CounterModel using the same values as inModel
                                                     // while updating the "count" field to be the current "count" field's value + 1.
