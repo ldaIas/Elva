@@ -2,34 +2,36 @@
 package net.elva.app
 
 import net.elva.core.*
+import net.elva.core.primitives.IntegerPrimitive
+import net.elva.core.primitives.PrimitiveFactory
+import net.elva.core.records.ElvaRecordInitializer
+import net.elva.std.iofx.DebugEffect
 import net.elva.runtime.RuntimeLoop
 
-object ToyCounterApp : Program<CounterModel> {
+object ToyCounterApp : Purpose<CounterModel, CounterModel> {
 
-    override fun init(): CounterModel {
-        return CounterModel(0)
-    }
+    override fun initModel(vararg args: String): CounterModel = ElvaRecordInitializer.init(CounterModel::class)
 
-    override fun update(purpose: CounterModel, msg: Msg): Pair<CounterModel, List<Effect>> {
-        return when (msg) {
-            Increment -> Pair(CounterModel(purpose.count + 1), listOf(DebugEffect("Increment called. Current model val: $purpose")))
-            Decrement -> Pair(CounterModel(purpose.count - 1), listOf(DebugEffect("Decrement called. Current model val: $purpose")))
-            else -> Pair(purpose, listOf())
+    override fun update(inModel: CounterModel, inMsg: Msg): Pair<CounterModel, List<Effect>> {
+        return when (inMsg) {
+            Increment -> Pair(CounterModel(inModel.count + PrimitiveFactory.getPrimitiveOf(1)), listOf(DebugEffect("Increment called. Current model val: $inModel")))
+            Decrement -> Pair(CounterModel(inModel.count - PrimitiveFactory.getPrimitiveOf(1)), listOf(DebugEffect("Decrement called. Current model val: $inModel")))
+            else -> Pair(inModel, listOf())
         }
     }
+
+    override fun surface(): Surface<CounterModel, Msg> = CounterSurface<CounterModel>()
+    
 }
 
-data class CounterModel(val count: Int) : Purpose {
-    override fun surface(): Surface<Purpose, Msg> {
-        return CounterSurface(this)
-    }
-}
+data class CounterModel(val count: IntegerPrimitive) : ElvaRecord
 
-data class CounterSurface<P: Purpose>(val purpose: P) : Surface<P, CounterAppMsg> {
-    override fun draw(): CounterAppMsg {
+class CounterSurface<R: CounterModel> : Surface<R, CounterAppMsg> {
+    override fun draw(inModel: R): CounterAppMsg {
 
         // Render
-        println("Counter Value: $purpose.count")
+        val currentCount = inModel.count
+        println("Counter Value: ${currentCount}")
 
         // Setup new Msgs
         println("Enter command: increment(i, +) or decrement(d, -)")
@@ -50,6 +52,6 @@ object Decrement : CounterAppMsg()
 object InvalidInput : CounterAppMsg()
 
 
-fun main() {
-    RuntimeLoop.run(ToyCounterApp)
+fun main(args: Array<String>) {
+    RuntimeLoop.run(ToyCounterApp, args)
 }

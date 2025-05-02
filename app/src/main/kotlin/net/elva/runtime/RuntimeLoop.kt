@@ -2,20 +2,20 @@ package net.elva.runtime
 
 import net.elva.core.Effect
 import net.elva.core.NoOp
-import net.elva.core.Program
 import net.elva.core.Purpose
+import net.elva.core.ElvaRecord
 
 object RuntimeLoop {
 
-    fun <P : Purpose> run(program: Program<P>) {
-        var purpose = program.init()
+    fun <R: ElvaRecord, P : Purpose<R, R>> run(programPurpose: P, args: Array<String>) {
+        var programModel = programPurpose.initModel(*args)
 
         while (true) {
-            val surface = purpose.surface()
-            val surfaceMsg = surface.draw()
+            val surface = programPurpose.surface()
+            val surfaceMsg = surface.draw(programModel)
 
-            val (newPurpose, requestedEffects) = program.update(purpose, surfaceMsg)
-            purpose = newPurpose
+            val (newPurpose, requestedEffects) = programPurpose.update(programModel, surfaceMsg)
+            programModel = newPurpose
 
             // Handle the requested effects (sequential serial and non-nested for now)
             requestedEffects.forEach { effect: Effect ->
@@ -23,8 +23,8 @@ object RuntimeLoop {
 
                     // If special NoOp msg is received, just continue
                     if (!(effectMsg is NoOp)) {
-                        val (nextPurpose, _) = program.update(purpose, effectMsg)
-                        purpose = nextPurpose
+                        val (nextPurpose, _) = programPurpose.update(programModel, effectMsg)
+                        programModel = nextPurpose
                     }
                 }
             }

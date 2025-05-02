@@ -26,6 +26,7 @@ dependencies {
     // This dependency is used by the application.
     implementation(libs.guava)
     implementation(kotlin("stdlib"))
+    implementation("org.jetbrains.kotlin:kotlin-reflect")
 }
 
 testing {
