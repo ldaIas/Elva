@@ -1,1 +1,1 @@
-java -jar ./app/build/libs/app-all.jar
+./gradlew clean build && java -jar ./app/build/libs/app-all.jar $@

@@ -60,11 +60,10 @@ kotlin {
 
 application {
     // Define the main class for the application.
-    mainClass = "net.elva.app.ToyCounterAppKt"
+    // mainClass = "net.elva.app.ToyCounterAppKt" // Use this for kotlin simulation
+    mainClass = "net.elva.tooling.ElvaCLIKt" // Use this for the cli (and whats used irl)
 }
 
 tasks.named<Jar>("jar") {
     enabled = false
 }
-
-// Make a header manifest so we can run the built .jar file with the java command directory (for stdin, gradlew doesn't like stdin)
