@@ -25,6 +25,17 @@ class ElvaLexer(private val source: String) {
                 '.' -> tokens.add(token(TokenType.DOT, "."))
                 ':' -> tokens.add(token(TokenType.COLON, ":",))
                 '=' -> tokens.add(token(TokenType.EQUAL, "="))
+                '"' -> {
+                    var value = ""
+                    while (peek() != '"' && !isAtEnd()) {
+                        value += advance()
+                    }
+                    if (isAtEnd()) {
+                        error("Unterminated string literal")
+                    }
+                    advance() // Consume the closing "
+                    tokens.add(token(TokenType.STRING, "\"" + value + "\""))
+                }
 
                 // Either subtraction or case definition (case -> expr)
                 '-' -> {
@@ -47,7 +58,7 @@ class ElvaLexer(private val source: String) {
                     }
                 }
 
-                ' ', '\r', '\t' -> advanceColumn()
+                ' ', '\r', '\t' -> {} // Skip ws; Already advanced column with the advance() call above
                 '\n' -> {
                     line++
                     column = 1
@@ -87,6 +98,7 @@ class ElvaLexer(private val source: String) {
             "Purpose" -> TokenType.PURPOSE
             "msg" -> TokenType.MSG
             "match" -> TokenType.MATCH
+            "record" -> TokenType.RECORD
             else -> TokenType.IDENTIFIER
         }
         return token(type, text)
@@ -107,8 +119,4 @@ class ElvaLexer(private val source: String) {
 
     private fun token(type: TokenType, lexeme: String) =
         Token(type, lexeme, TokenPosition(line, column - lexeme.length))
-
-    private fun advanceColumn() {
-        column++
-    }
 }

@@ -14,12 +14,23 @@ import net.elva.lang.ast.ExprVar
 import net.elva.lang.ast.Expr
 import net.elva.lang.ast.ExprMatch
 import net.elva.lang.ast.MatchBranch
+import net.elva.lang.ast.RecordDecl
+import net.elva.lang.ast.RecordField
+import net.elva.lang.ast.ExprRecordCtorNamed
+import net.elva.lang.ast.ExprRecordCtor
+import net.elva.lang.ast.ExprFloat
+import net.elva.lang.ast.ExprInt
+import net.elva.lang.ast.ExprString
 
 
 class ElvaParser(private val tokens: List<Token>) {
 
     private var current = 0
 
+    /**
+     * Used to parse the entire source code into a list of top level declarations.
+     * Common in actual source code parsing, but not for REPL or expression unit testing
+     */
     fun parseTopLevel(): List<TopLevelDecl> {
         val declarations = mutableListOf<TopLevelDecl>()
 
@@ -27,11 +38,20 @@ class ElvaParser(private val tokens: List<Token>) {
             when (peek().type) {
                 TokenType.MSG -> declarations.add(parseMsg())
                 TokenType.FN -> declarations.add(parseFn())
+                TokenType.RECORD -> declarations.add(parseRecord())
                 TokenType.EOF -> break
-                else -> error("Parse error at ${peek()}: Expected top level declaration.")
+                else -> error("Parse error at ${peek()}: Expected top level declaration.\nTo parse single expressions at the top level, use `$ elva <source> true`")
             }
         }
         return declarations
+    }
+
+    /**
+     * Used to parse "top level expressions" - expressions not used in a fun or identifier.
+     * Common in REPL cases or for unit testing expression evaluation, but not for actual source code
+     */
+    fun parseExprTopLevel(): Expr {
+        return parseExpr()
     }
 
     private fun parseMsg(): MsgDecl {
@@ -92,8 +112,37 @@ class ElvaParser(private val tokens: List<Token>) {
         return FnDecl(fnName, fnParams, fnReturnType, body)
     }
 
+    private fun parseRecord(): RecordDecl {
+        consume(TokenType.RECORD, "Expected `record`")
+        val name = consume(TokenType.IDENTIFIER, "Expected record name").lexeme
+        consume(TokenType.EQUAL, "Expected '=' after record name")
+        consume(TokenType.LBRACE, "Expected '{' before record fields")
+
+        val fields = mutableListOf<RecordField>()
+        while (!check(TokenType.RBRACE)) {
+            val fieldName = consume(TokenType.IDENTIFIER, "Expected field name").lexeme
+            consume(TokenType.COLON, "Expected ':' after field name")
+            val fieldType = consume(TokenType.IDENTIFIER, "Expected field type").lexeme
+            fields.add(RecordField(fieldName, fieldType))
+
+            if (!check(TokenType.RBRACE)) {
+                consume(TokenType.COMMA, "Expected ',' or '}' after field")
+            }
+        }
+
+        consume(TokenType.RBRACE, "Expected '}' after record fields")
+        return RecordDecl(name, fields)
+    }
+
     private fun parseExpr(): Expr {
+        println(peek())
         return when {
+
+            // Literals
+            check(TokenType.NUMBER) -> parseNumber()
+            check(TokenType.STRING) -> parseString()
+
+            // '(' - Either a unit expression ("()") or a paranthesized expression ("(expr)")
             match(TokenType.LPAREN) -> {
                 if (check(TokenType.RPAREN)) {
                     advance()
@@ -104,11 +153,32 @@ class ElvaParser(private val tokens: List<Token>) {
                     ExprParens(inner)
                 }
             }
+
+            // Handle match cases
             match(TokenType.MATCH) -> parseMatch()
+
+            // Some identifier (var, fun, record, etc)
             check(TokenType.IDENTIFIER) -> {
                 val identifier = advance()
-                ExprVar(identifier.lexeme)
+                val name = identifier.lexeme
+                return when {
+                    // Named valued record construction (MyRecord {val1 = x, val2 = y, ...}) or shothand default construction (MyRecord {})
+                    check(TokenType.LBRACE) -> parseNamedRecordCtor(name)
+
+                    // Shorthand valued record construction (MyRecord x y)
+                    check(TokenType.IDENTIFIER) || check(TokenType.NUMBER) || check(TokenType.STRING) || check(TokenType.LPAREN) -> {
+                        val args = mutableListOf<Expr>()
+                        while (check(TokenType.IDENTIFIER) || check(TokenType.NUMBER) || check(TokenType.STRING) || check(TokenType.LPAREN)) {
+                            args.add(parseExpr())
+                        }
+                        ExprRecordCtor(name, args)
+                    }
+
+                    else -> ExprVar(name) // Could be a lot of things if its just an identifier
+                }
             }
+
+            
             else -> error("Parse error at ${peek()}: Expected expression")
         }
     }
@@ -135,6 +205,45 @@ class ElvaParser(private val tokens: List<Token>) {
             return true
         }
         return false
+    }
+
+    private fun parseNumber(): Expr {
+        val token = advance()
+        val value = token.lexeme
+
+        return if (value.contains('.')) {
+            ExprFloat(value.toDouble())
+        } else {
+            ExprInt(value.toInt())
+        }
+    }
+
+    private fun parseString(): Expr {
+        val token = advance()
+
+        // Remove the "" surrounding the text value that is the string
+        return ExprString(token.lexeme.removeSurrounding("\""))
+    }
+
+    private fun parseNamedRecordCtor(name: String): ExprRecordCtorNamed {
+        consume(TokenType.LBRACE, "Expected '{' before record field names")
+
+        val fields = mutableListOf<Pair<String, Expr>>()
+        while (!check(TokenType.RBRACE)) {
+            val fieldName = consume(TokenType.IDENTIFIER, "Expected record field name").lexeme
+            consume(TokenType.EQUAL, "Expected '=' after field name")
+            val fieldValue = parseExpr()
+            println("Parsed field: $fieldValue")
+            fields.add(Pair(fieldName, fieldValue))
+
+            if (!check(TokenType.RBRACE)) {
+                consume(TokenType.COMMA, "Expected field seperation (',') or construction termination ('}') after field")
+            }
+            
+        }
+
+        consume(TokenType.RBRACE, "Expected '}' after record field names")
+        return ExprRecordCtorNamed(name, fields)
     }
 
     private fun consume(type: TokenType, errorMessage: String): Token {

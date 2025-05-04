@@ -27,6 +27,10 @@ dependencies {
     implementation(libs.guava)
     implementation(kotlin("stdlib"))
     implementation("org.jetbrains.kotlin:kotlin-reflect")
+
+    // Test deps
+    testImplementation(kotlin("test"))
+    testImplementation("org.junit.jupiter:junit-jupiter:5.10.0")
 }
 
 testing {
@@ -66,4 +70,8 @@ application {
 
 tasks.named<Jar>("jar") {
     enabled = false
+}
+
+tasks.test {
+    useJUnitPlatform()
 }

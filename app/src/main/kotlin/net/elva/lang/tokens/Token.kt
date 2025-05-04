@@ -6,7 +6,7 @@ data class Token(
     val line: TokenPosition = TokenPosition(0, 0)
 ) {
     override fun toString(): String {
-        return "'$lexeme' (line: ${line.line} col: ${line.column})"
+        return "'$lexeme' (of $type) (line: ${line.line} col: ${line.column})"
     }
 }
 

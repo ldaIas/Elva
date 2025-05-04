@@ -26,5 +26,7 @@ enum class TokenType{
     // Keywords
     FN, PURPOSE, MSG,
 
+    RECORD,
+
     EOF
 }
