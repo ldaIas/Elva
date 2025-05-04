@@ -1,4 +1,1 @@
-msg CounterMsg 
-    = Increment
-    | Decrement
-    | InvalidInput
+fn update (inModel: CounterModel, inMsg: CounterMsg) |-> (CounterModel, List, Effect) = fn

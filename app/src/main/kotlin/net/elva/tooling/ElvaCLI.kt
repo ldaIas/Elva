@@ -2,6 +2,7 @@ package net.elva.tooling
 
 import java.io.File
 import net.elva.lang.parser.ElvaLexer
+import net.elva.lang.parser.ElvaParser
 
 fun main(args: Array<String>) {
     
@@ -25,6 +26,14 @@ fun main(args: Array<String>) {
         println(token)
     }
     println("=== Done ===")
+
+    println("\n=== Parsing ${file.name} ===")
+    val parser = ElvaParser(tokens)
+    val decls = parser.parseTopLevel()
+    println("=== Done ===")
+
+    println("\n=== AST ===")
+    decls.forEach(::println)
 }
 
 fun printUsage() {
