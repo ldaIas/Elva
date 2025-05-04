@@ -9,9 +9,9 @@ data class FnDecl(
 
 data class FnParam(
     val name: String,
-    val type: String
+    val type: TypeExpr
 )
 
 data class FnReturnType(
-    val types: List<String>
+    val types: List<TypeExpr>
 )

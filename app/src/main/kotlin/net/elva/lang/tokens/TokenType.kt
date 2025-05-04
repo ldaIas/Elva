@@ -3,7 +3,10 @@ package net.elva.lang.tokens
 enum class TokenType{
 
     // Single char symbols
-    LPAREN, RPAREN, LBRACE, RBRACE, COMMA, DOT, MINUS, PLUS, SLASH, EQUAL, COLON, 
+    LPAREN, RPAREN, LBRACE, RBRACE, COMMA, DOT, MINUS, PLUS, SLASH, EQUAL, COLON,
+
+    // Type constraint notation ("<:")
+    TYPE_CONST,
     
     // The | in "type A = B | C"
     PIPE, 
@@ -24,9 +27,9 @@ enum class TokenType{
     IDENTIFIER, STRING, NUMBER, TRUE, FALSE,
 
     // Keywords
-    FN, PURPOSE, MSG,
+    FN, MSG,
 
-    RECORD,
+    RECORD, TYPEDEF,
 
     EOF
 }

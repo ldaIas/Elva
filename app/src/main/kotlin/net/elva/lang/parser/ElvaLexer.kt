@@ -25,6 +25,17 @@ class ElvaLexer(private val source: String) {
                 '.' -> tokens.add(token(TokenType.DOT, "."))
                 ':' -> tokens.add(token(TokenType.COLON, ":",))
                 '=' -> tokens.add(token(TokenType.EQUAL, "="))
+
+                // Currently only the type constraint "<:" uses the < char
+                '<' -> {
+                    if(match(':')) {
+                        tokens.add(token(TokenType.TYPE_CONST, "<:"))
+                    } else {
+                        error("Unexpected character '<'")
+                    }
+                }
+
+                // Build up a string literal using the contents in the quotes
                 '"' -> {
                     var value = ""
                     while (peek() != '"' && !isAtEnd()) {
@@ -95,12 +106,12 @@ class ElvaLexer(private val source: String) {
         val text = source.substring(start, current)
         val type = when (text) {
             "fn" -> TokenType.FN
-            "Purpose" -> TokenType.PURPOSE
             "msg" -> TokenType.MSG
             "match" -> TokenType.MATCH
             "record" -> TokenType.RECORD
             "true" -> TokenType.TRUE
             "false" -> TokenType.FALSE
+            "typedef" -> TokenType.TYPEDEF
             else -> TokenType.IDENTIFIER
         }
         return token(type, text)

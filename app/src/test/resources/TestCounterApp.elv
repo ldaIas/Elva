@@ -37,13 +37,19 @@ record CounterModel =
     + init = CounterModel 0 // Could also do CounterModel(0) or {count = 0}
     }
 
+typedef surface <: (V: record, E: msg) = 
+    { view: (V |-> ())
+    , events: List E
+    }
 
 /**
  * A surface is a way of presenting or "feeling" the model. It is typed by the Purpose and Message types.
  * The update function must use the same Message type the surface does
  * Basic surface for Counter purposes that displays the current count to the shell, and asks for user input via stdin
  */
-surface CounterSurface P: Counter, M: CounterMsg =
+ // optionally:
+ // surface CounterSurface <: (V: CounterModel, E: CounterMsg) =
+surface CounterSurface <: V: CounterModel, E: CounterMsg =
     { view = \counterModel -> SimpleShellOut ("Current count is" ++ counterModel.count) // SimpleShellout is standard library renderer. eq to {outStr = "..."}
     , events = [ SimpleShellIn "Enter command: increment(i, +) or decrement(d, -)" 
                                \userInput -> case String.lower(userInput) of: 

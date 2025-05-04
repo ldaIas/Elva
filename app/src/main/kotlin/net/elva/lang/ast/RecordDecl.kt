@@ -7,5 +7,5 @@ data class RecordDecl(
 
 data class RecordField(
     val name: String,
-    val type: String
+    val type: TypeExpr
 )

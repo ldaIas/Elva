@@ -22,6 +22,13 @@ import net.elva.lang.ast.ExprFloat
 import net.elva.lang.ast.ExprInt
 import net.elva.lang.ast.ExprString
 import net.elva.lang.ast.ExprBool
+import net.elva.lang.ast.TypedefDecl
+import net.elva.lang.ast.TypeExpr
+import net.elva.lang.ast.TypeApplied
+import net.elva.lang.ast.TypeFunc
+import net.elva.lang.ast.TypeNamed
+import net.elva.lang.ast.TypeVar
+import net.elva.lang.ast.TypeUnit
 import kotlin.check
 
 
@@ -41,6 +48,7 @@ class ElvaParser(private val tokens: List<Token>) {
                 TokenType.MSG -> declarations.add(parseMsg())
                 TokenType.FN -> declarations.add(parseFn())
                 TokenType.RECORD -> declarations.add(parseRecord())
+                TokenType.TYPEDEF -> declarations.add(parseTypedef())
                 TokenType.EOF -> break
                 else -> error("Parse error at ${peek()}: Expected top level declaration.\nTo parse single expressions at the top level, use `$ elva <source> true`")
             }
@@ -73,6 +81,55 @@ class ElvaParser(private val tokens: List<Token>) {
         return MsgDecl(name, variants)
     }
 
+    private fun parseTypeExpr(): TypeExpr {
+        var type = parseTypePrimary()
+
+        // Handle chained type application: List A B -> ((List A) B)
+        while (!isAtEnd() && (check(TokenType.IDENTIFIER) || check(TokenType.LPAREN))) {
+            val arg = parseTypePrimary()
+            type = TypeApplied(type, arg)
+        }
+
+        return type
+    }
+
+    private fun parseTypePrimary(): TypeExpr {
+        return when {
+            // Either (), (TypeExpr), or (TypeExpr |-> TypeExpr)
+            match(TokenType.LPAREN) -> {
+
+                if (check(TokenType.RPAREN)) {
+                    advance()
+                    TypeUnit
+                }
+
+                val from = parseTypeExpr()
+                if (match(TokenType.FN_ARROW)) {
+                    val to = parseTypeExpr()
+                    consume(TokenType.RPAREN, "Expected ')' after function type")
+                    TypeFunc(from, to)
+                } else {
+                    consume(TokenType.RPAREN, "Expected ')' after type expression")
+                    from
+                }
+            }
+
+            // Either a named type (String) or type var (T)
+            // Compiler enforces defined type names must be greater than 1 char and not all caps, and type variables must be all caps
+            check(TokenType.IDENTIFIER) -> {
+                val name = advance().lexeme
+                if (name.all { it.isUpperCase() }) {
+                    TypeVar(name)
+                } else {
+                    TypeNamed(name)
+                }
+
+            }
+
+            else -> error("Parse error at ${peek()}: Expected type expression")
+        }
+    }
+
     private fun parseFn(): FnDecl {
         consume(TokenType.FN, "Expected 'fn'")
 
@@ -86,7 +143,7 @@ class ElvaParser(private val tokens: List<Token>) {
             do {
                 val paramName = consume(TokenType.IDENTIFIER, "Expected parameter name").lexeme
                 consume(TokenType.COLON, "Expected ':' after parameter name")
-                val paramType = consume(TokenType.IDENTIFIER, "Expected parameter type").lexeme
+                val paramType = parseTypeExpr()
                 fnParams.add(FnParam(paramName, paramType))
             } while (match(TokenType.COMMA))
             
@@ -97,10 +154,10 @@ class ElvaParser(private val tokens: List<Token>) {
         consume(TokenType.FN_ARROW, "Expected |-> after terminating the input types with ')' in function definition")
 
         // Collect the function types
-        val fnReturnTypes = mutableListOf<String>()
+        val fnReturnTypes = mutableListOf<TypeExpr>()
         consume(TokenType.LPAREN, "Expected '(' before function return type(s)")
         do {
-            val type = consume(TokenType.IDENTIFIER, "Expected return type").lexeme
+            val type = parseTypeExpr()
             fnReturnTypes.add(type)
         } while (match(TokenType.COMMA))
         val fnReturnType = FnReturnType(fnReturnTypes)
@@ -114,6 +171,14 @@ class ElvaParser(private val tokens: List<Token>) {
         return FnDecl(fnName, fnParams, fnReturnType, body)
     }
 
+    /**
+     * Parse record definitions.
+     * For example:
+     * record MyRecord
+     *    = { val1: Int
+     *      , val2: String
+     *      }
+     */
     private fun parseRecord(): RecordDecl {
         consume(TokenType.RECORD, "Expected `record`")
         val name = consume(TokenType.IDENTIFIER, "Expected record name").lexeme
@@ -124,7 +189,7 @@ class ElvaParser(private val tokens: List<Token>) {
         while (!check(TokenType.RBRACE)) {
             val fieldName = consume(TokenType.IDENTIFIER, "Expected field name").lexeme
             consume(TokenType.COLON, "Expected ':' after field name")
-            val fieldType = consume(TokenType.IDENTIFIER, "Expected field type").lexeme
+            val fieldType = parseTypeExpr()
             fields.add(RecordField(fieldName, fieldType))
 
             if (!check(TokenType.RBRACE)) {
@@ -134,6 +199,53 @@ class ElvaParser(private val tokens: List<Token>) {
 
         consume(TokenType.RBRACE, "Expected '}' after record fields")
         return RecordDecl(name, fields)
+    }
+
+    /**
+     * Parses meta-record typedefs.
+     * For example:
+     * typedef surface <: (V: record, E: msg)
+     *     = { view: V
+     *       , effects: E
+     *       }
+     */
+    private fun parseTypedef(): TopLevelDecl {
+
+        consume(TokenType.TYPEDEF, "Expected 'typedef'")
+
+        val typedefName = consume(TokenType.IDENTIFIER, "Expected typedef name").lexeme
+
+        // Parse optional "<: (K: kind, ...)" after typedef name
+        val typeParams = mutableListOf<Pair<String, TypeExpr>>()
+        if (match(TokenType.TYPE_CONST)) {
+            consume(TokenType.LPAREN, "Expected '(' after type parameters")
+
+            do {
+                val paramName = consume(TokenType.IDENTIFIER, "Expected type parameter name").lexeme
+                consume(TokenType.COLON, "Expected ':' after type parameter name")
+                val paramType = parseTypeExpr()
+                typeParams.add(Pair(paramName, paramType))
+            } while (match(TokenType.COMMA))
+            consume(TokenType.RPAREN, "Expected ')' after type parameters")
+        }
+
+        consume(TokenType.EQUAL, "Expected '=' after typedef header")
+        consume(TokenType.LBRACE, "Expected '{' before typedef record fields")
+
+        val fields = mutableListOf<RecordField>()
+        while (!check(TokenType.RBRACE)) {
+            val fieldName = consume(TokenType.IDENTIFIER, "Expected field name").lexeme
+            consume(TokenType.COLON, "Expected ':' after field name")
+            val fieldType = parseTypeExpr()
+            fields.add(RecordField(fieldName, fieldType))
+
+            if (!check(TokenType.RBRACE)) {
+                consume(TokenType.COMMA, "Expected ', ' or '}' after field in typedef shape definition")
+            }
+        }
+
+        consume(TokenType.RBRACE, "Expected '}' after typedef shape definition")
+        return TypedefDecl(typedefName, typeParams, fields)
     }
 
     private fun parseExpr(): Expr {
@@ -203,6 +315,10 @@ class ElvaParser(private val tokens: List<Token>) {
     }
     
 
+    /**
+     * Matches the given token type and consumes it if it matches.
+     * Returns true if the token type matches, false otherwise.
+     */
     private fun match(type: TokenType): Boolean {
         if (check(type)) {
             advance()

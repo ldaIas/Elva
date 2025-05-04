@@ -75,3 +75,16 @@ tasks.named<Jar>("jar") {
 tasks.test {
     useJUnitPlatform()
 }
+
+tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile> {
+    kotlinOptions {
+        javaParameters = true
+        freeCompilerArgs += "-Xdebug"
+    }
+}
+
+tasks.named<JavaExec>("run") {
+    if (project.hasProperty("debugMode")) {
+        jvmArgs = listOf("-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=5005")
+    }
+}

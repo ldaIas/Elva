@@ -2,22 +2,8 @@ package net.elva.parser
 
 import net.elva.lang.parser.ElvaLexer
 import net.elva.lang.parser.ElvaParser
-import net.elva.lang.ast.ExprRecordCtorNamed
-import net.elva.lang.ast.ExprString
-import net.elva.lang.ast.Expr
-import net.elva.lang.ast.ExprInt
-import net.elva.lang.ast.ExprBool
-import net.elva.lang.ast.TopLevelDecl
-import net.elva.lang.ast.MsgDecl
-import net.elva.lang.ast.MsgVariant
-import net.elva.lang.ast.FnDecl
-import net.elva.lang.ast.FnParam
-import net.elva.lang.ast.FnReturnType
-import net.elva.lang.ast.ExprVar
-import net.elva.lang.ast.ExprParens
-import net.elva.lang.ast.ExprMatch
-import net.elva.lang.ast.MatchBranch
-import net.elva.lang.ast.ExprUnit
+import net.elva.lang.ast.*
+
 import net.elva.lang.tokens.TokenPosition
 import org.junit.jupiter.api.Test
 import kotlin.test.assertEquals
@@ -89,8 +75,8 @@ class ElvaParserTests {
         val expected = listOf(
             FnDecl(
                 name = "update",
-                params = listOf(FnParam("x", "CounterModel")),
-                returnType = FnReturnType(listOf("CounterModel")),
+                params = listOf(FnParam("x", TypeNamed("CounterModel"))),
+                returnType = FnReturnType(listOf(TypeNamed("CounterModel"))),
                 body = ExprVar("x")
             
             )
@@ -118,8 +104,9 @@ class ElvaParserTests {
         val expected = listOf(
             FnDecl(
                 name = "fiveIntToThreeInt",
-                params = listOf(FnParam("x1", "Int"), FnParam("x2", "Int"), FnParam("x3", "Int"), FnParam("x4", "Int"), FnParam("x5", "Int")),
-                returnType = FnReturnType(listOf("Int", "Int", "Int")),
+                params = listOf(FnParam("x1", TypeNamed("Int")), FnParam("x2", TypeNamed("Int")), FnParam("x3", TypeNamed("Int")), 
+                                FnParam("x4", TypeNamed("Int")), FnParam("x5", TypeNamed("Int"))),
+                returnType = FnReturnType(listOf(TypeNamed("Int"), TypeNamed("Int"), TypeNamed("Int"))),
                 body = ExprParens(ExprVar("x1"))
             
             )
