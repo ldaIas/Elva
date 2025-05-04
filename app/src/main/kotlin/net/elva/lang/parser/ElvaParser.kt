@@ -12,6 +12,8 @@ import net.elva.lang.ast.ExprUnit
 import net.elva.lang.ast.ExprParens
 import net.elva.lang.ast.ExprVar
 import net.elva.lang.ast.Expr
+import net.elva.lang.ast.ExprMatch
+import net.elva.lang.ast.MatchBranch
 
 
 class ElvaParser(private val tokens: List<Token>) {
@@ -70,7 +72,7 @@ class ElvaParser(private val tokens: List<Token>) {
 
         consume(TokenType.RPAREN, "Expected ')' after function parameters")
 
-        consume(TokenType.ARROW, "Expected |-> after terminating the input types with ')' in function definition")
+        consume(TokenType.FN_ARROW, "Expected |-> after terminating the input types with ')' in function definition")
 
         // Collect the function types
         val fnReturnTypes = mutableListOf<String>()
@@ -102,12 +104,28 @@ class ElvaParser(private val tokens: List<Token>) {
                     ExprParens(inner)
                 }
             }
+            match(TokenType.MATCH) -> parseMatch()
             check(TokenType.IDENTIFIER) -> {
                 val identifier = advance()
                 ExprVar(identifier.lexeme)
             }
             else -> error("Parse error at ${peek()}: Expected expression")
         }
+    }
+
+    private fun parseMatch(): ExprMatch {
+        val target = parseExpr()
+        consume(TokenType.COLON, "Expected ':' after match target")
+
+        val branches = mutableListOf<MatchBranch>()
+        while (!check(TokenType.EOF) && check(TokenType.IDENTIFIER)) {
+            val pattern = consume(TokenType.IDENTIFIER, "Expected pattern").lexeme
+            consume(TokenType.CASE_ARROW, "Expected '->' after pattern")
+            val result = parseExpr()
+            branches.add(MatchBranch(pattern, result))
+        }
+        
+        return ExprMatch(target, branches)
     }
     
 

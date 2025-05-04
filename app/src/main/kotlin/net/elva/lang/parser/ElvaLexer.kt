@@ -25,22 +25,33 @@ class ElvaLexer(private val source: String) {
                 '.' -> tokens.add(token(TokenType.DOT, "."))
                 ':' -> tokens.add(token(TokenType.COLON, ":",))
                 '=' -> tokens.add(token(TokenType.EQUAL, "="))
-                '-' -> tokens.add(token(TokenType.MINUS, "-"))
+
+                // Either subtraction or case definition (case -> expr)
+                '-' -> {
+                    if (match('>')) {
+                        tokens.add(token(TokenType.CASE_ARROW, "->"))
+                    } else {
+                        tokens.add(token(TokenType.MINUS, "-"))
+                    }
+                }
+
                 '+' -> tokens.add(token(TokenType.PLUS, "+"))
                 '/' -> tokens.add(token(TokenType.SLASH, "/"))
+
+                // Either function return types decl start (|->) or type pipe (type A = B | C)
                 '|' -> {
                     if (match('-') && match('>')) {
-                        tokens.add(token(TokenType.ARROW, "|->"))
+                        tokens.add(token(TokenType.FN_ARROW, "|->"))
                     } else {
                         tokens.add(token(TokenType.PIPE, "|"))
                     }
                 }
+
                 ' ', '\r', '\t' -> advanceColumn()
                 '\n' -> {
                     line++
                     column = 1
                 }
-
                 else -> {
                     if (isAlpha(ch)) {
                         tokens.add(identifierOrKeyword(start))
@@ -75,6 +86,7 @@ class ElvaLexer(private val source: String) {
             "fn" -> TokenType.FN
             "Purpose" -> TokenType.PURPOSE
             "msg" -> TokenType.MSG
+            "match" -> TokenType.MATCH
             else -> TokenType.IDENTIFIER
         }
         return token(type, text)
