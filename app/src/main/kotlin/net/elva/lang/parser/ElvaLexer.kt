@@ -99,6 +99,8 @@ class ElvaLexer(private val source: String) {
             "msg" -> TokenType.MSG
             "match" -> TokenType.MATCH
             "record" -> TokenType.RECORD
+            "true" -> TokenType.TRUE
+            "false" -> TokenType.FALSE
             else -> TokenType.IDENTIFIER
         }
         return token(type, text)

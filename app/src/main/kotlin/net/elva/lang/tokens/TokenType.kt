@@ -21,7 +21,7 @@ enum class TokenType{
     MATCH, CASE_ARROW,
 
     // Literals
-    IDENTIFIER, STRING, NUMBER,
+    IDENTIFIER, STRING, NUMBER, TRUE, FALSE,
 
     // Keywords
     FN, PURPOSE, MSG,

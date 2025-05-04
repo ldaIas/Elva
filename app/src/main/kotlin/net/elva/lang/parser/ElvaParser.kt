@@ -21,6 +21,8 @@ import net.elva.lang.ast.ExprRecordCtor
 import net.elva.lang.ast.ExprFloat
 import net.elva.lang.ast.ExprInt
 import net.elva.lang.ast.ExprString
+import net.elva.lang.ast.ExprBool
+import kotlin.check
 
 
 class ElvaParser(private val tokens: List<Token>) {
@@ -141,12 +143,14 @@ class ElvaParser(private val tokens: List<Token>) {
             // Literals
             check(TokenType.NUMBER) -> parseNumber()
             check(TokenType.STRING) -> parseString()
+            check(TokenType.TRUE) -> parseBoolean(true)
+            check(TokenType.FALSE) -> parseBoolean(false)
 
             // '(' - Either a unit expression ("()") or a paranthesized expression ("(expr)")
             match(TokenType.LPAREN) -> {
                 if (check(TokenType.RPAREN)) {
                     advance()
-                    ExprUnit(peek().line)
+                    ExprUnit
                 } else {
                     val inner = parseExpr()
                     consume(TokenType.RPAREN, "Expected ')' after expression")
@@ -218,6 +222,11 @@ class ElvaParser(private val tokens: List<Token>) {
         }
     }
 
+    private fun parseBoolean(value: Boolean): Expr { 
+        advance()
+        return ExprBool(value)
+    }
+
     private fun parseString(): Expr {
         val token = advance()
 
@@ -233,7 +242,6 @@ class ElvaParser(private val tokens: List<Token>) {
             val fieldName = consume(TokenType.IDENTIFIER, "Expected record field name").lexeme
             consume(TokenType.EQUAL, "Expected '=' after field name")
             val fieldValue = parseExpr()
-            println("Parsed field: $fieldValue")
             fields.add(Pair(fieldName, fieldValue))
 
             if (!check(TokenType.RBRACE)) {

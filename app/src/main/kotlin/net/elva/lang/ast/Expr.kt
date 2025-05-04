@@ -4,14 +4,15 @@ import net.elva.lang.tokens.TokenPosition
 
 sealed class Expr
 
-data class ExprVar(val name: String): Expr()
-data class ExprUnit(val position: TokenPosition): Expr()
+data class ExprVar(val name: String) : Expr()
+data object ExprUnit : Expr()
 data class ExprParens(val inner: Expr) : Expr()
 
 /* Primitive expressions */
 data class ExprInt(val value: Int) : Expr()
 data class ExprFloat(val value: Double) : Expr()
 data class ExprString(val value: String) : Expr()
+data class ExprBool(val value: Boolean) : Expr()
 
 
 /**
