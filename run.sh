@@ -1,1 +1,1 @@
-./gradlew clean build && java -jar ./app/build/libs/app-all.jar app/src/test/resources/TestTokenizer.elv
+./gradlew clean build && java -jar ./app/build/libs/app-all.jar $@

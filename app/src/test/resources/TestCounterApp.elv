@@ -1,5 +1,4 @@
-from elva.std.iofx import =
-    Debug
+import elva.std.iofx using Debug, SimpleShellOut as Out, SimpleShellIn as In
 
 /**
  * The purpose is a special `record` that tells us what the program _is_.

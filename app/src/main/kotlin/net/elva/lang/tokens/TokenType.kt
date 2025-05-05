@@ -31,5 +31,8 @@ enum class TokenType{
 
     RECORD, TYPEDEF,
 
+    // Importing
+    IMPORT, USING, AS,
+
     EOF
 }

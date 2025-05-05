@@ -112,6 +112,9 @@ class ElvaLexer(private val source: String) {
             "true" -> TokenType.TRUE
             "false" -> TokenType.FALSE
             "typedef" -> TokenType.TYPEDEF
+            "import" -> TokenType.IMPORT
+            "using" -> TokenType.USING
+            "as" -> TokenType.AS
             else -> TokenType.IDENTIFIER
         }
         return token(type, text)

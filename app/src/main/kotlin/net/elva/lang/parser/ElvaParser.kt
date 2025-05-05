@@ -1,6 +1,7 @@
 package net.elva.lang.parser
 
 import net.elva.lang.ast.*
+import net.elva.lang.ast.ImportDecl
 import net.elva.lang.tokens.Token
 import net.elva.lang.tokens.TokenType
 import kotlin.check
@@ -23,6 +24,7 @@ class ElvaParser(private val tokens: List<Token>) {
                 TokenType.FN -> declarations.add(parseFn())
                 TokenType.RECORD -> declarations.add(parseRecord())
                 TokenType.TYPEDEF -> declarations.add(parseTypedef())
+                TokenType.IMPORT -> declarations.add(parseImport())
                 TokenType.EOF -> break
                 else -> error("Parse error at ${peek()}: Expected top level declaration.\nTo parse single expressions at the top level, use `$ elva <source> true`")
             }
@@ -115,6 +117,33 @@ class ElvaParser(private val tokens: List<Token>) {
 
             else -> error("Parse error at ${peek()}: Expected type expression")
         }
+    }
+
+    private fun parseImport(): ImportDecl {
+        consume(TokenType.IMPORT, "Expected 'import'")
+
+        var pkgName = ""
+        do {
+            pkgName += consume(TokenType.IDENTIFIER, "Expected package identifier in import").lexeme
+
+            if (peek().type == TokenType.DOT) {
+                pkgName += "."
+            }
+        } while (match(TokenType.DOT))
+
+        consume(TokenType.USING, "Expected 'using' after package declaration")
+
+        val imports = mutableListOf<ImportItem>()
+        do {
+            val name = consume(TokenType.IDENTIFIER, "Expected import identifier name")
+            var alias: String? = null
+            if (match(TokenType.AS)) {
+                alias = consume(TokenType.IDENTIFIER, "Expected import alias name").lexeme
+            }
+            imports.add(ImportItem(name.lexeme, alias))
+        } while (match(TokenType.COMMA))
+
+        return ImportDecl(pkgName, imports)
     }
 
     private fun parseFn(): FnDecl {
