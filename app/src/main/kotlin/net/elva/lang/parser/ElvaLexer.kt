@@ -58,7 +58,29 @@ class ElvaLexer(private val source: String) {
                 }
 
                 '+' -> tokens.add(token(TokenType.PLUS, "+"))
-                '/' -> tokens.add(token(TokenType.SLASH, "/"))
+
+                // Could be start of comment ('/*') or division 
+                '/' -> {
+                    // Either JDoc style (/* * * */) or single line (//) or normal use of / char
+                    when {
+                        match('*') -> {
+                            while (!isAtEnd() && !(peek() == '*' && match('/'))) {
+                                // Consume the characters by just looping through them all until the */ is hit
+                            }
+                        }
+                        match('/') -> {
+                            while (peek() != '\n' && !isAtEnd()) advance()
+                        }
+                        else -> tokens.add(token(TokenType.SLASH, "/"))
+                    }
+
+                    if (match('*')) {
+                        while (!isAtEnd() && !(peek() == '*' && match('/'))) {
+                            // Consume the characters by just looping through them all until the */ is hit
+                        }
+                    } 
+                    tokens.add(token(TokenType.SLASH, "/"))
+                }
 
                 // Either function return types decl start (|->) or type pipe (type A = B | C)
                 '|' -> {
