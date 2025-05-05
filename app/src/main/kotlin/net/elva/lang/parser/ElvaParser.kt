@@ -1,34 +1,8 @@
 package net.elva.lang.parser
 
+import net.elva.lang.ast.*
 import net.elva.lang.tokens.Token
 import net.elva.lang.tokens.TokenType
-import net.elva.lang.ast.TopLevelDecl
-import net.elva.lang.ast.MsgDecl
-import net.elva.lang.ast.MsgVariant
-import net.elva.lang.ast.FnDecl
-import net.elva.lang.ast.FnParam
-import net.elva.lang.ast.FnReturnType
-import net.elva.lang.ast.ExprUnit
-import net.elva.lang.ast.ExprParens
-import net.elva.lang.ast.ExprVar
-import net.elva.lang.ast.Expr
-import net.elva.lang.ast.ExprMatch
-import net.elva.lang.ast.MatchBranch
-import net.elva.lang.ast.RecordDecl
-import net.elva.lang.ast.RecordField
-import net.elva.lang.ast.ExprRecordCtorNamed
-import net.elva.lang.ast.ExprRecordCtor
-import net.elva.lang.ast.ExprFloat
-import net.elva.lang.ast.ExprInt
-import net.elva.lang.ast.ExprString
-import net.elva.lang.ast.ExprBool
-import net.elva.lang.ast.TypedefDecl
-import net.elva.lang.ast.TypeExpr
-import net.elva.lang.ast.TypeApplied
-import net.elva.lang.ast.TypeFunc
-import net.elva.lang.ast.TypeNamed
-import net.elva.lang.ast.TypeVar
-import net.elva.lang.ast.TypeUnit
 import kotlin.check
 
 
@@ -81,7 +55,13 @@ class ElvaParser(private val tokens: List<Token>) {
         return MsgDecl(name, variants)
     }
 
-    private fun parseTypeExpr(): TypeExpr {
+    /**
+     * Parse a type expression.
+     * While publicly accessible, it is not meant for top level source code use.
+     * It is public for use in the REPL, which will evaluate it to a type, and unit tests.
+     * It doesn't make sense to parse source code that only evaluates to a type as this code does nothing.
+     */
+    fun parseTypeExpr(): TypeExpr {
         var type = parseTypePrimary()
 
         // Handle chained type application: List A B -> ((List A) B)
@@ -98,20 +78,27 @@ class ElvaParser(private val tokens: List<Token>) {
             // Either (), (TypeExpr), or (TypeExpr |-> TypeExpr)
             match(TokenType.LPAREN) -> {
 
-                if (check(TokenType.RPAREN)) {
-                    advance()
-                    TypeUnit
+                if (match(TokenType.RPAREN)) {
+                    return TypeUnit
                 }
 
-                val from = parseTypeExpr()
-                if (match(TokenType.FN_ARROW)) {
-                    val to = parseTypeExpr()
-                    consume(TokenType.RPAREN, "Expected ')' after function type")
-                    TypeFunc(from, to)
-                } else {
-                    consume(TokenType.RPAREN, "Expected ')' after type expression")
-                    from
+                val first = parseTypeExpr()
+                val types = mutableListOf(first)
+
+                // If we see a comma, keep parsing tuple elements
+                while (match(TokenType.COMMA)) {
+                    types.add(parseTypeExpr())
                 }
+
+                if (match(TokenType.FN_ARROW)) {
+                    val returnType = parseTypeExpr()
+                    consume(TokenType.RPAREN, "Expected ')' after function type")
+                    val from = if (types.size == 1) types[0] else TypeTuple(types)
+                    return TypeFunc(from, returnType)
+                }
+
+                consume(TokenType.RPAREN, "Expected ')' after type expression")
+                if (types.size == 1) types[0] else TypeTuple(types)
             }
 
             // Either a named type (String) or type var (T)
