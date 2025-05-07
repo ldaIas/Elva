@@ -64,22 +64,22 @@ class ElvaLexer(private val source: String) {
                     // Either JDoc style (/* * * */) or single line (//) or normal use of / char
                     when {
                         match('*') -> {
-                            while (!isAtEnd() && !(peek() == '*' && match('/'))) {
+                            while (!isAtEnd() && !(peek() == '*' && peekNext()== '/')) {
                                 // Consume the characters by just looping through them all until the */ is hit
+                                val commentCh = advance()
+                                if (commentCh == '\n') {
+                                    line++
+                                    column = 1
+                                }
                             }
+                            advance() // advance past the *
+                            advance() // advance past the /
                         }
                         match('/') -> {
                             while (peek() != '\n' && !isAtEnd()) advance()
                         }
                         else -> tokens.add(token(TokenType.SLASH, "/"))
                     }
-
-                    if (match('*')) {
-                        while (!isAtEnd() && !(peek() == '*' && match('/'))) {
-                            // Consume the characters by just looping through them all until the */ is hit
-                        }
-                    } 
-                    tokens.add(token(TokenType.SLASH, "/"))
                 }
 
                 // Either function return types decl start (|->) or type pipe (type A = B | C)
@@ -149,6 +149,7 @@ class ElvaLexer(private val source: String) {
     }
 
     private fun peek(): Char = if (isAtEnd()) '\u0000' else source[current]
+    private fun peekNext(): Char = if (current + 1 >= source.length) '\u0000' else source[current + 1]
 
     private fun isAlpha(ch: Char): Boolean = ch.isLetter() || ch == '_'
     private fun isDigit(ch: Char): Boolean = ch.isDigit()
