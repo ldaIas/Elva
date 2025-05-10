@@ -3,5 +3,5 @@ package net.elva.lang.ast
 data class TypedefDecl(
     val name: String,
     val typeParams: List<Pair<String, TypeExpr>>,
-    val fields: List<RecordField>
+    val fields: List<RecordFieldDecl>
 ) : TopLevelDecl()

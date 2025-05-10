@@ -1,10 +1,11 @@
 package net.elva.lang.parser
 
+import net.elva.core.ElvaRecord
+import net.elva.core.Msg
 import net.elva.lang.ast.*
 import net.elva.lang.ast.ImportDecl
 import net.elva.lang.tokens.Token
 import net.elva.lang.tokens.TokenType
-import kotlin.check
 
 
 class ElvaParser(private val tokens: List<Token>) {
@@ -25,11 +26,95 @@ class ElvaParser(private val tokens: List<Token>) {
                 TokenType.RECORD -> declarations.add(parseRecord())
                 TokenType.TYPEDEF -> declarations.add(parseTypedef())
                 TokenType.IMPORT -> declarations.add(parseImport())
+                TokenType.PURPOSE -> declarations.add(parsePurpose())
+                TokenType.SURFACE -> declarations.add(parseSurface())
                 TokenType.EOF -> break
                 else -> error("Parse error at ${peek()}: Expected top level declaration.\nTo parse single expressions at the top level, use `$ elva <source> true`")
             }
         }
         return declarations
+    }
+
+    /**
+     * Parses purposes that look like:
+     * purpose SomePurpose <: M: CounterModel, E: CounterMsg =
+     * { model = \_ -> CounterModel
+     * , surface = \_ -> CounterSurface
+     * , update = update
+     * }
+     */
+    private fun parsePurpose() : PurposeDecl<ElvaRecord, Msg> {
+        consume(TokenType.PURPOSE, "Expected 'purpose'")
+
+        val name = consume(TokenType.IDENTIFIER, "Expected purpose name").lexeme
+
+        // Parse type params
+        val typeParms = checkAndParseTypeParams()
+        // We should only have two
+        if (typeParms.size != 2) error("Expected 2 type params for purpose")
+        val typeParamPair = Pair(typeParms[0], typeParms[1])
+
+        consume(TokenType.EQUAL, "Expected '=' after purpose name")
+        // Get the purpose values as record fields
+        val purposeFields = mutableListOf<RecordFieldValueDecl>()
+        consume(TokenType.LBRACE, "Expected '{' after '='")
+        while (!check(TokenType.RBRACE) && !isAtEnd()) {
+            val fieldName = consume(TokenType.IDENTIFIER, "Expected field name").lexeme
+            consume(TokenType.EQUAL, "Expected '=' after field name")
+            val value = parseExpr()
+            purposeFields.add(RecordFieldValueDecl(fieldName, value))
+        }
+
+        // There should be 3 fields: model, surface, and update
+        val modelField = purposeFields.find { it.name == "model" }
+            ?: error("Expected a model field while parsing purpose")
+        val surfaceField = purposeFields.find { it.name == "surface" }
+            ?: error("Expected a surface field while parsing purpose")
+        val updateField = purposeFields.find { it.name == "update" }
+            ?: error("Expected an update field while parsing purpose")
+
+        if (purposeFields.size != 3) error("Expected 3 fields while parsing purpose")
+
+        return PurposeDecl(name, typeParamPair, modelField, surfaceField, updateField)
+    }
+
+
+    /**
+     * Parses surfaces that look like:
+     * purpose SomeSurface <: M: CounterModel, E: CounterMsg =
+     * { draw = \model -> Increment
+     * }
+     */
+    private fun parseSurface() : SurfaceDecl<ElvaRecord, Msg> {
+        consume(TokenType.SURFACE, "Expected 'surface'")
+
+        val name = consume(TokenType.IDENTIFIER, "Expected surface name").lexeme
+
+        // Parse type params
+        val typeParms = checkAndParseTypeParams()
+        // We should only have two
+        if (typeParms.size != 2) error("Expected 2 type params for surface")
+        val typeParamPair = Pair(typeParms[0], typeParms[1])
+
+        consume(TokenType.EQUAL, "Expected '=' after surface name")
+        // Get the purpose values as record fields
+        val purposeFields = mutableListOf<RecordFieldValueDecl>()
+        consume(TokenType.LBRACE, "Expected '{' after '='")
+        while (!check(TokenType.RBRACE) && !isAtEnd()) {
+            val fieldName = consume(TokenType.IDENTIFIER, "Expected field name").lexeme
+            consume(TokenType.EQUAL, "Expected '=' after field name")
+            val value = parseExpr()
+            purposeFields.add(RecordFieldValueDecl(fieldName, value))
+        }
+
+        // There should be 1 field, draw
+        val drawField = purposeFields.find { it.name == "draw" }
+            ?: error("Expected a draw field while parsing surface")
+
+        if (purposeFields.size != 1) error("Expected 1 field while parsing surface")
+
+
+        return SurfaceDecl(name, typeParamPair, drawField)
     }
 
     /**
@@ -201,12 +286,12 @@ class ElvaParser(private val tokens: List<Token>) {
         consume(TokenType.EQUAL, "Expected '=' after record name")
         consume(TokenType.LBRACE, "Expected '{' before record fields")
 
-        val fields = mutableListOf<RecordField>()
+        val fields = mutableListOf<RecordFieldDecl>()
         while (!check(TokenType.RBRACE)) {
             val fieldName = consume(TokenType.IDENTIFIER, "Expected field name").lexeme
             consume(TokenType.COLON, "Expected ':' after field name")
             val fieldType = parseTypeExpr()
-            fields.add(RecordField(fieldName, fieldType))
+            fields.add(RecordFieldDecl(fieldName, fieldType))
 
             if (!check(TokenType.RBRACE)) {
                 consume(TokenType.COMMA, "Expected ',' or '}' after field")
@@ -232,9 +317,57 @@ class ElvaParser(private val tokens: List<Token>) {
         val typedefName = consume(TokenType.IDENTIFIER, "Expected typedef name").lexeme
 
         // Parse optional "<: (K: kind, ...)" after typedef name
+        val typeParams = checkAndParseTypeParams()
+
+        consume(TokenType.EQUAL, "Expected '=' after typedef header")
+
+        val fields = checkAndParseFieldDefs()
+
+        return TypedefDecl(typedefName, typeParams, fields)
+    }
+
+    /**
+     * Checks for record field definitions and parses them if they exist.
+     * For example:
+     *  { val1: Int
+     *  , val2: String
+     *  } produces [<"val1", TypeNamed("Int")>, <"val2", TypeNamed("String")>]
+     *  @return List of RecordFields
+     */
+    private fun checkAndParseFieldDefs(): List<RecordFieldDecl> {
+
+        consume(TokenType.LBRACE, "Expected '{' before record fields")
+
+        val fields = mutableListOf<RecordFieldDecl>()
+        while (!check(TokenType.RBRACE)) {
+            val fieldName = consume(TokenType.IDENTIFIER, "Expected field name").lexeme
+            consume(TokenType.COLON, "Expected ':' after field name")
+            val fieldType = parseTypeExpr()
+            fields.add(RecordFieldDecl(fieldName, fieldType))
+
+            if (!check(TokenType.RBRACE)) {
+                consume(TokenType.COMMA, "Expected ', ' or '}' after field")
+            }
+        }
+
+        consume(TokenType.RBRACE, "Expected '}' after record fields")
+        return fields
+    }
+
+    /**
+     * Checks for type parameters and parses them if they exist.
+     * For example:
+     * foo <: (K: Kind, V: Value) produces [<"K", TypeVar("K")>, <"V", TypeVar("V")>]
+     */
+    private fun checkAndParseTypeParams():  List<Pair<String, TypeExpr>> {
+        // Parse optional "<: (K: kind, ...)"
         val typeParams = mutableListOf<Pair<String, TypeExpr>>()
         if (match(TokenType.TYPE_CONST)) {
-            consume(TokenType.LPAREN, "Expected '(' after type parameters")
+
+            // Parens are optional for visual aid, consume if we have the left paren
+            if (check(TokenType.LPAREN)) {
+                consume(TokenType.LPAREN, "Expected '(' after type parameters")
+            }
 
             do {
                 val paramName = consume(TokenType.IDENTIFIER, "Expected type parameter name").lexeme
@@ -242,26 +375,13 @@ class ElvaParser(private val tokens: List<Token>) {
                 val paramType = parseTypeExpr()
                 typeParams.add(Pair(paramName, paramType))
             } while (match(TokenType.COMMA))
-            consume(TokenType.RPAREN, "Expected ')' after type parameters")
-        }
 
-        consume(TokenType.EQUAL, "Expected '=' after typedef header")
-        consume(TokenType.LBRACE, "Expected '{' before typedef record fields")
-
-        val fields = mutableListOf<RecordField>()
-        while (!check(TokenType.RBRACE)) {
-            val fieldName = consume(TokenType.IDENTIFIER, "Expected field name").lexeme
-            consume(TokenType.COLON, "Expected ':' after field name")
-            val fieldType = parseTypeExpr()
-            fields.add(RecordField(fieldName, fieldType))
-
-            if (!check(TokenType.RBRACE)) {
-                consume(TokenType.COMMA, "Expected ', ' or '}' after field in typedef shape definition")
+            // Consume right paren if necessary
+            if (check(TokenType.RPAREN)) {
+                consume(TokenType.RPAREN, "Expected ')' after type parameters")
             }
         }
-
-        consume(TokenType.RBRACE, "Expected '}' after typedef shape definition")
-        return TypedefDecl(typedefName, typeParams, fields)
+        return typeParams
     }
 
     private fun parseExpr(): Expr {
@@ -294,7 +414,7 @@ class ElvaParser(private val tokens: List<Token>) {
                 val identifier = advance()
                 val name = identifier.lexeme
                 return when {
-                    // Named valued record construction (MyRecord {val1 = x, val2 = y, ...}) or shothand default construction (MyRecord {})
+                    // Named valued record construction (MyRecord {val1 = x, val2 = y, ...}) or shorthand default construction (MyRecord {})
                     check(TokenType.LBRACE) -> parseNamedRecordCtor(name)
 
                     // Shorthand valued record construction (MyRecord x y)

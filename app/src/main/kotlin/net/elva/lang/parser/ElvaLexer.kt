@@ -131,6 +131,8 @@ class ElvaLexer(private val source: String) {
             "msg" -> TokenType.MSG
             "match" -> TokenType.MATCH
             "record" -> TokenType.RECORD
+            "surface" -> TokenType.SURFACE
+            "purpose" -> TokenType.PURPOSE
             "true" -> TokenType.TRUE
             "false" -> TokenType.FALSE
             "typedef" -> TokenType.TYPEDEF

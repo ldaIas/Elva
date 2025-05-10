@@ -12,7 +12,7 @@ enum class TokenType{
     PIPE, 
 
     // |->
-    FN_ARROW, 
+    FN_ARROW,
 
     /** Match cases. For example:
      *  match expr:
@@ -27,7 +27,7 @@ enum class TokenType{
     IDENTIFIER, STRING, NUMBER, TRUE, FALSE,
 
     // Keywords
-    FN, MSG,
+    FN, MSG, PURPOSE, SURFACE,
 
     RECORD, TYPEDEF,
 

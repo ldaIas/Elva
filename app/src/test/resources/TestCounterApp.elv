@@ -2,18 +2,20 @@ import elva.std.iofx using Debug, SimpleShellOut as Out, SimpleShellIn as In
 
 /**
  * The purpose is a special `record` that tells us what the program _is_.
- * This acts as the main function.
+ * This acts as the main function. The Elva runtime looks for the purpose definition and invokes the surface
+ *          view with the model record returned by the model function. It will then loop according to the surface's events.
  * It tells us what the internal state will be (model) and how that will be presented to users (surface) as well as how to handle signals.
  * The purpose type has special definitions:
- * - `model` must be a record (normal)
- * - `surface` must be a special decalared `surface` definition that is typed by the purpose (Counter here)
+ * - `model` must be a function that returns a record of the V type. In this case it returns an initialized CounterModel
+ * - `surface` must be a function that returns a special declared `surface` definition
+ *          that is constrained by the V type for the input model and the E type for the effects produced
  * - `update` must be a function that conforms to the updateInterface: takes in a `record` and `msg` and produces a record in the same shape as the input
-                Must take in the same msg type as the surface
+                Must take in the same E type as the surface
  */
-purpose Counter =
-    { model: CounterModel
-    , surface: CounterSurface
-    , update: update
+purpose CounterAppPurpose <: V: CounterModel, E: CounterMsg =
+    { model = \_ -> CounterModel {}
+    , surface = \_ -> CounterSurface
+    , update = update
     }
 
 /**
@@ -34,12 +36,18 @@ record CounterModel =
     { count : Int
     
     + init = CounterModel 0 // Could also do CounterModel(0) or {count = 0}
+    // TODO Allow overriding any non-forbidden string of characters for methods
+    // IE "+ add (self: CounterModel) |-> CounterModel = { self | count = current + 1}"
+    // Usage: "fn updateModel(model: CounterModel) |-> CounterModel = model.add
+    // Multi param: "+ mergeCounts(self: CounterModel, other: CounterModel) |-> CounterModel = { self | count = current + other.count}
+    // Usage: "fn addModels(m1: CounterModel, m2: CounterModel) |-> CounterModel = m1.mergeCounts m2
     }
 
-typedef surface <: (V: record, E: msg) = 
-    { view: (V |-> ())
-    , events: List E
-    }
+// This should be in the standard library that gets auto imported
+// typedef surface <: (V: record, E: msg) = 
+//     { view: (V |-> ())
+//     , events: List E
+//     }
 
 /**
  * A surface is a way of presenting or "feeling" the model. It is typed by the Purpose and Message types.
@@ -49,13 +57,14 @@ typedef surface <: (V: record, E: msg) =
  // optionally:
  // surface CounterSurface <: (V: CounterModel, E: CounterMsg) =
 surface CounterSurface <: V: CounterModel, E: CounterMsg =
-    { view = \counterModel -> SimpleShellOut ("Current count is" ++ counterModel.count) // SimpleShellout is standard library renderer. eq to {outStr = "..."}
-    , events = [ SimpleShellIn "Enter command: increment(i, +) or decrement(d, -)" 
-                               \userInput -> case String.lower(userInput) of: 
-                                   "+", "i" -> Increment
-                                   "-", "d" -> Decrement
-                                   _ -> InvalidInput
-               ]   
+    {
+    draw = \counterModel -> SimpleShellOut ("Current count is" ++ counterModel.count) // SimpleShellout is standard library renderer. eq to {outStr = "..."}
+                                           (SimpleShellIn ("Enter command: increment(i, +) or decrement(d, -)")
+                                            (\userInput -> case String.lower(userInput) of: 
+                                                "+", "i" -> Increment
+                                                "-", "d" -> Decrement
+                                                _ -> InvalidInput)
+                                           )
     }
 
 /**
@@ -65,10 +74,10 @@ surface CounterSurface <: V: CounterModel, E: CounterMsg =
  */
 fn update (inModel: CounterModel, inMsg: CounterMsg) |-> (CounterModel, List Effect) =
     case inMsg of:
-        Increment -> (inModel | count = current + 1 // This line is shorthand to create a new CounterModel using the same values as inModel
-                                                    // while updating the "count" field to be the current "count" field's value + 1.
-                                                    // "current" is shorthand for referencing the field on the LHS of assignment in the input record.
-                                                    // would be like `CurrentModel (inModel.count + 1)` or `inModel | count = inModel.count + 1`
+        Increment -> ( { inModel | count = current + 1 } // This line is shorthand to create a new CounterModel using the same values as inModel
+                                                         // while updating the "count" field to be the current "count" field's value + 1.
+                                                         // "current" is shorthand for referencing the field on the LHS of assignment in the input record.
+                                                         // would be like `CurrentModel (inModel.count + 1)` or `inModel | count = inModel.count + 1`
                       , [ Debug "Increment pressed. Current model is " ++ inModel ] )
-        Decrement -> (inModel | count = current - 1, Debug "Decrement pressed. Current model is " ++ inModel)
+        Decrement -> ({ inModel | count = current - 1 }, Debug "Decrement pressed. Current model is " ++ inModel)
         InvalidInput -> (inModel, [ Debug "Invalid input entered, nothing done" ]) 

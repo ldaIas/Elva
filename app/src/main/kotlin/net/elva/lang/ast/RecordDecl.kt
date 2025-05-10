@@ -2,10 +2,10 @@ package net.elva.lang.ast
 
 data class RecordDecl(
     val name: String,
-    val fields: List<RecordField>
+    val fields: List<RecordFieldDecl>
 ) : TopLevelDecl()
 
-data class RecordField(
+data class RecordFieldDecl(
     val name: String,
     val type: TypeExpr
 )
